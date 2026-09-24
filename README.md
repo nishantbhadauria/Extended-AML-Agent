@@ -4,7 +4,7 @@ AML / CFT / CPF transaction monitoring, explainable alert scoring and compliance
 
 A DSPy-based analytics agent for anti-money-laundering, counter-terrorist-
 financing, and counter-proliferation-financing investigations, structured the
-same way as the Walmart **cash agent** but re-platformed onto **Databricks**
+same way as the  **DSPY agent** but re-platformed onto **Databricks**
 (Delta / Unity Catalog) with **Dataiku** for orchestration and governance.
 
 It is decision-support for a human investigator. It never determines guilt and
@@ -16,7 +16,7 @@ never files an STR/SAR — every narrative it produces is a **draft for review**
 |---|---|
 | DSPy ReAct code-gen agent (`Master_Agent_Prompt`) | `AMLInvestigator` signature + `Investigator` module |
 | Gemini summarizer (`Summarizer_Agent_Prompt`) | `AMLSummarizer` + `Summarizer` module (own LM) |
-| Walmart LLM Gateway via custom LiteLLM provider + JWT | `src/llm/gateway.py` (`GatewayTokenProvider`) |
+|  LLM Gateway via custom LiteLLM provider + JWT | `src/llm/gateway.py` (`GatewayTokenProvider`) |
 | 15 pre-computed fraud pattern flags | 16 AML/CFT/CPF typology flags in `patterns/` |
 | Code executed in sandboxed namespace | `execution/sandbox.py` (AST check + subprocess + timeout) |
 | BigQuery feedback log | Delta `agent_feedback` table |
