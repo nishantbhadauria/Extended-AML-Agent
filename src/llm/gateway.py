@@ -1,9 +1,6 @@
 """LLM configuration and a pluggable corporate-gateway provider.
 
-The cash agent talked to Walmart's internal LLM Gateway through a custom
-LiteLLM provider (WalmartLLMGateway) that injected a PingFed JWT. FAB will have
-its own gateway or an Azure OpenAI deployment on Databricks; the shape is the
-same. This module:
+ This module:
 
   1. Configures DSPy with the investigator + summarizer models.
   2. Shows the custom-provider pattern for gateways that need a bearer token
