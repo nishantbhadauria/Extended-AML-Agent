@@ -61,6 +61,7 @@ class ConsistencyCheck(dspy.Signature):
 
 @dataclass
 class RAGResult:
+    """Answer plus gate outcomes, citations and retrieved sources."""
     question: str
     answer: str
     status: str                       # GROUNDED | INSUFFICIENT_GROUNDING
@@ -72,12 +73,14 @@ class RAGResult:
 
 
 def format_passages(hits: list[tuple[Chunk, float]]) -> str:
+    """Render retrieved chunks as numbered passages with their chunk ids."""
     return "\n\n".join(
         f"[{c.chunk_id}] {c.doc_id} Art.{c.article or '-'} ({c.version}): {c.text}"
         for c, _ in hits)
 
 
 def citation_gate(answer: str, hits: list[tuple[Chunk, float]]) -> tuple[bool, list[str], list[str]]:
+    """Check every cited chunk id was retrieved. Returns (passed, cited, bogus)."""
     cited = sorted(set(re.findall(r"\[([0-9a-f]{16})\]", answer)))
     known = {c.chunk_id for c, _ in hits}
     bogus = [c for c in cited if c not in known]
@@ -85,6 +88,7 @@ def citation_gate(answer: str, hits: list[tuple[Chunk, float]]) -> tuple[bool, l
 
 
 class ComplianceRAG(dspy.Module):
+    """Retrieve, answer, then gate the answer on citations, confidence and consistency."""
     def __init__(self, embedder: Embedder | None, store: VectorStore, k: int = 6,
                  min_confidence: float = 0.6) -> None:
         super().__init__()
@@ -94,12 +98,14 @@ class ComplianceRAG(dspy.Module):
         self.consistency = dspy.Predict(ConsistencyCheck)
 
     def retrieve(self, question: str, filters: dict | None = None) -> list[tuple[Chunk, float]]:
+        """Top-k chunks for the question, optionally filtered by metadata."""
         if self.embedder is None and hasattr(self.store, "search_text"):
             return self.store.search_text(question, self.k, filters)   # managed embeddings
         return self.store.search(self.embedder.embed([question])[0], self.k, filters)
 
     def forward(self, question: str, filters: dict | None = None,
                 multi_agent: bool = True) -> RAGResult:
+        """Run the full answer-and-validate flow for one question."""
         hits = self.retrieve(question, filters)
         sources = [{**c.meta(), "score": round(s, 4)} for c, s in hits]
         if not hits:

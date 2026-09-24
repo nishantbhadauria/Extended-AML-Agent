@@ -55,6 +55,7 @@ def hard_override(df: pd.DataFrame) -> pd.Series:
 
 @dataclass
 class ARSModel:
+    """EBM alert risk score with a SAR-leakage-bounded auto-close cutoff."""
     miss_tolerance: float = 0.01        # max share of SARs allowed below the cutoff
     random_state: int = 7
     ebm_params: dict = field(default_factory=lambda: {"interactions": 5, "n_jobs": -2})
@@ -63,6 +64,7 @@ class ARSModel:
     metrics: dict = field(default_factory=dict)
 
     def fit(self, alerts: pd.DataFrame, valid_months: int = 1) -> "ARSModel":
+        """Train on older months, validate on the latest, and set the cutoff."""
         months = sorted(alerts.month.unique())
         split = months[-valid_months]
         tr, va = alerts[alerts.month < split], alerts[alerts.month >= split]
@@ -97,6 +99,7 @@ class ARSModel:
         return float(sar_scores[allowed])
 
     def score(self, alerts: pd.DataFrame) -> pd.DataFrame:
+        """Add ars_score, hard_override and route columns."""
         out = alerts.copy()
         out["ars_score"] = self.ebm.predict_proba(out[ARS_FEATURES])[:, 1]
         out["hard_override"] = hard_override(out)
@@ -106,6 +109,7 @@ class ARSModel:
         return out
 
     def calibration_table(self, alerts: pd.DataFrame, bins: int = 10) -> pd.DataFrame:
+        """Mean score vs observed SAR rate per score decile."""
         s = self.score(alerts)
         s["bin"] = pd.qcut(s.ars_score, q=bins, duplicates="drop")
         return s.groupby("bin", observed=True).agg(

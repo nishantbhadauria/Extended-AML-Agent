@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 from typing import Protocol
 
@@ -42,7 +42,8 @@ _ARTICLE_RE = re.compile(r"(?im)^\s*(Article\s*\(?\s*(\d+)\s*\)?)")
 
 
 @dataclass
-class Chunk:
+class Chunk:  # pylint: disable=too-many-instance-attributes
+    """One retrievable passage with its document, version and article metadata."""
     chunk_id: str
     doc_id: str
     title: str
@@ -53,18 +54,24 @@ class Chunk:
     text: str
 
     def meta(self) -> dict:
+        """Metadata fields without the text, for payloads and source listings."""
         d = asdict(self)
         d.pop("text")
         return d
 
 
+CHUNK_FIELDS = [f.name for f in fields(Chunk)]
+
+
 def load_pdf_text(path: str | Path) -> str:
+    """Extract plain text from every page of a PDF."""
     from pypdf import PdfReader
 
     return "\n".join((p.extract_text() or "") for p in PdfReader(str(path)).pages)
 
 
-def split_by_article(text: str, max_chars: int = 2500, overlap: int = 200) -> list[tuple[str | None, str]]:
+def split_by_article(text: str, max_chars: int = 2500,
+                     overlap: int = 200) -> list[tuple[str | None, str]]:
     """Split on 'Article N' headings; sub-split long articles with overlap.
     Text before the first article (preamble/definitions) gets article=None."""
     marks = list(_ARTICLE_RE.finditer(text))
@@ -94,6 +101,7 @@ def split_by_article(text: str, max_chars: int = 2500, overlap: int = 200) -> li
 
 def chunk_document(text: str, doc_id: str, title: str, version: str = "v1",
                    effective: str | None = None, jurisdiction: str = "UAE") -> list[Chunk]:
+    """Split a document into article-aware Chunk objects with stable ids."""
     chunks = []
     for art, piece in split_by_article(text):
         cid = hashlib.sha1(f"{doc_id}|{version}|{art}|{piece[:64]}".encode()).hexdigest()[:16]
@@ -103,7 +111,10 @@ def chunk_document(text: str, doc_id: str, title: str, version: str = "v1",
 
 # ------------------------------- embeddings -------------------------------- #
 class Embedder(Protocol):
-    def embed(self, texts: list[str]) -> np.ndarray: ...
+    """Anything that turns a list of texts into an (n, dim) array."""
+
+    def embed(self, texts: list[str]) -> np.ndarray:
+        """Embed texts into an (n, dim) float array."""
 
 
 class HashingEmbedder:
@@ -113,12 +124,13 @@ class HashingEmbedder:
         self.dim = dim
 
     def embed(self, texts: list[str]) -> np.ndarray:
-        M = np.zeros((len(texts), self.dim), dtype=np.float32)
+        """Hash tokens into a normalised bag-of-words vector per text."""
+        mat = np.zeros((len(texts), self.dim), dtype=np.float32)
         for i, t in enumerate(texts):
             for tok in re.findall(r"[a-z0-9]+", t.lower()):
-                M[i, int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1
-        n = np.linalg.norm(M, axis=1, keepdims=True)
-        return M / np.where(n == 0, 1, n)
+                mat[i, int(hashlib.md5(tok.encode()).hexdigest(), 16) % self.dim] += 1
+        n = np.linalg.norm(mat, axis=1, keepdims=True)
+        return mat / np.where(n == 0, 1, n)
 
 
 class DatabricksEmbedder:
@@ -130,29 +142,39 @@ class DatabricksEmbedder:
         self.client, self.endpoint = get_deploy_client("databricks"), endpoint
 
     def embed(self, texts: list[str]) -> np.ndarray:
+        """Embed texts through the Databricks serving endpoint."""
         resp = self.client.predict(endpoint=self.endpoint, inputs={"input": texts})
         return np.array([d["embedding"] for d in resp["data"]], dtype=np.float32)
 
 
 # ------------------------------- vector stores ----------------------------- #
 class VectorStore(Protocol):
-    def upsert(self, chunks: list[Chunk], vectors: np.ndarray) -> None: ...
-    def search(self, vector: np.ndarray, k: int, filters: dict | None = None) -> list[tuple[Chunk, float]]: ...
+    """Minimal store interface: upsert chunks with vectors, search by vector."""
+
+    def upsert(self, chunks: list[Chunk], vectors: np.ndarray) -> None:
+        """Add or replace chunks and their vectors."""
+
+    def search(self, vector: np.ndarray, k: int,
+               filters: dict | None = None) -> list[tuple[Chunk, float]]:
+        """Return the k nearest chunks with similarity scores."""
 
 
 class InMemoryStore:
+    """Numpy cosine-similarity store for tests and offline development."""
     def __init__(self) -> None:
         self.chunks: list[Chunk] = []
-        self.M: np.ndarray | None = None
+        self.matrix: np.ndarray | None = None
 
     def upsert(self, chunks: list[Chunk], vectors: np.ndarray) -> None:
+        """Append chunks and vectors to the in-memory matrix."""
         self.chunks += chunks
-        self.M = vectors if self.M is None else np.vstack([self.M, vectors])
+        self.matrix = vectors if self.matrix is None else np.vstack([self.matrix, vectors])
 
     def search(self, vector, k=5, filters=None):
-        if self.M is None:
+        """Cosine top-k with optional exact-match metadata filters."""
+        if self.matrix is None:
             return []
-        sims = self.M @ vector
+        sims = self.matrix @ vector
         idx = [i for i in np.argsort(-sims)
                if not filters or all(getattr(self.chunks[i], f) == v for f, v in filters.items())]
         return [(self.chunks[i], float(sims[i])) for i in idx[:k]]
@@ -167,9 +189,10 @@ class DatabricksVectorSearchStore:
         from databricks.vector_search.client import VectorSearchClient
 
         self.index = VectorSearchClient().get_index(endpoint_name=endpoint, index_name=index_name)
-        self.cols = list(Chunk.__dataclass_fields__)
+        self.cols = CHUNK_FIELDS
 
     def upsert(self, chunks, vectors):
+        """Not used: the delta-sync index follows its source table."""
         raise NotImplementedError("Write chunks to the source Delta table; the index syncs.")
 
     def _rows(self, res):
@@ -177,6 +200,7 @@ class DatabricksVectorSearchStore:
         return [(Chunk(*r[: len(self.cols)]), float(r[-1])) for r in rows]
 
     def search(self, vector, k=5, filters=None):
+        """Similarity search with a precomputed query vector."""
         return self._rows(self.index.similarity_search(
             query_vector=list(map(float, vector)), columns=self.cols,
             num_results=k, filters=filters))
@@ -197,6 +221,7 @@ class QdrantStore:
         self.client, self.collection = QdrantClient(url=url), collection
 
     def upsert(self, chunks, vectors):
+        """Create the collection if needed and upsert chunk points."""
         from qdrant_client.models import Distance, PointStruct, VectorParams
 
         if not self.client.collection_exists(self.collection):
@@ -208,8 +233,14 @@ class QdrantStore:
             for c, v in zip(chunks, vectors)])
 
     def search(self, vector, k=5, filters=None):
-        hits = self.client.query_points(self.collection, query=vector.tolist(), limit=k).points
-        return [(Chunk(**{f: h.payload.get(f) for f in Chunk.__dataclass_fields__}), h.score)
+        """Nearest points, with exact-match payload filters when given."""
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        qfilter = Filter(must=[FieldCondition(key=f, match=MatchValue(value=v))
+                               for f, v in filters.items()]) if filters else None
+        hits = self.client.query_points(self.collection, query=vector.tolist(),
+                                        query_filter=qfilter, limit=k).points
+        return [(Chunk(**{f: h.payload.get(f) for f in CHUNK_FIELDS}), h.score)
                 for h in hits]
 
 

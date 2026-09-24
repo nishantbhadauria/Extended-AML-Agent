@@ -19,6 +19,7 @@ import pandas as pd
 
 
 def scenario_kpis(alerts: pd.DataFrame) -> pd.DataFrame:
+    """Alerts, SARs and productivity per scenario and segment."""
     k = alerts.groupby(["scenario_id", "segment"]).agg(
         alerts=("sar", "size"), sars=("sar", "sum")).reset_index()
     k["productivity"] = (k.sars / k.alerts).round(4)
@@ -28,6 +29,7 @@ def scenario_kpis(alerts: pd.DataFrame) -> pd.DataFrame:
 
 def programme_kpis(cm: pd.DataFrame, alerts: pd.DataFrame,
                    scored: pd.DataFrame | None = None) -> dict:
+    """Programme-level alert rate, SAR coverage and, if scored, auto-close KPIs."""
     total_sars = int(cm.sar.sum())
     alerted_keys = alerts[["customer_id", "month"]].drop_duplicates()
     caught = cm.merge(alerted_keys, on=["customer_id", "month"]).sar.sum()
@@ -65,6 +67,7 @@ def psi(ref: pd.Series, cur: pd.Series, bins: int = 10) -> float:
 
 
 def drift_report(ref: pd.DataFrame, cur: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """PSI per column between a reference and a current frame."""
     rows = []
     for c in cols:
         v = psi(ref[c], cur[c])

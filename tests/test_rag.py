@@ -1,6 +1,9 @@
 """RAG ingestion + deterministic citation gate (no LLM needed)."""
 from __future__ import annotations
 
+# pytest idioms: fixtures are injected by argument name; test names document intent.
+# pylint: disable=missing-function-docstring
+
 from src.rag.agents import citation_gate
 from src.rag.ingest import HashingEmbedder, InMemoryStore, chunk_document
 
@@ -34,7 +37,7 @@ def test_retrieval_finds_right_article():
 
 
 def test_citation_gate_rejects_unretrieved_ids():
-    chunks, store, emb = _store()
+    _, store, emb = _store()
     hits = store.search(emb.embed(["enhanced due diligence"])[0], k=2)
     good = f"EDD applies to PEPs [{hits[0][0].chunk_id}]."
     bad = "EDD applies to PEPs [deadbeefdeadbeef]."

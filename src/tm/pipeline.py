@@ -17,6 +17,7 @@ from src.tm import ars, kpis, segmentation, thresholds
 
 @dataclass
 class TMArtifacts:
+    """Everything one TM process run produces."""
     segment_model: segmentation.SegmentModel
     segment_profile: pd.DataFrame
     segment_stability: float
@@ -33,6 +34,7 @@ class TMArtifacts:
 
 def run(cm: pd.DataFrame, recall_floor: float = 0.95,
         miss_tolerance: float = 0.01, ebm_params: dict | None = None) -> TMArtifacts:
+    """Run the full TM process on customer-month data."""
     months = sorted(cm.month.unique())
     ref_cm = cm[cm.month < months[-1]]
 

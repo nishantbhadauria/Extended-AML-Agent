@@ -29,7 +29,8 @@ class AMLInvestigator(dspy.Signature):
     sample_rows: str = dspy.InputField(desc="A few example rows so the model sees realistic values.")
     guardrails: str = dspy.InputField(desc="Numbered code-generation guardrails that MUST be obeyed.")
 
-    python_code: str = dspy.OutputField(desc="Executable pandas/plotly code assigning `result`. No imports, no prints.")
+    python_code: str = dspy.OutputField(
+        desc="Executable pandas/plotly code assigning `result`. No imports, no prints.")
     explanation: str = dspy.OutputField(desc="Plain-language explanation of what the code does and why.")
 
 
@@ -49,9 +50,13 @@ class AMLSummarizer(dspy.Signature):
     guardrails: str = dspy.InputField(desc="Numbered summarization guardrails.")
 
     insight: str = dspy.OutputField(desc="Key findings, grounded in the result, with the driving evidence.")
-    sar_narrative_draft: str = dspy.OutputField(desc="DRAFT who/what/when/where/why/how narrative for human review.")
-    recommended_action: str = dspy.OutputField(desc="One of: escalate to L2 | request EDD | file STR/SAR draft | close as false positive | no action.")
-    data_quality_caveats: str = dspy.OutputField(desc="Gaps (missing UBO, unresolved counterparty, stale screening).")
+    sar_narrative_draft: str = dspy.OutputField(
+        desc="DRAFT who/what/when/where/why/how narrative for human review.")
+    recommended_action: str = dspy.OutputField(
+        desc="One of: escalate to L2 | request EDD | file STR/SAR draft | close as false "
+             "positive | no action.")
+    data_quality_caveats: str = dspy.OutputField(
+        desc="Gaps (missing UBO, unresolved counterparty, stale screening).")
 
 
 class RegulatoryMapper(dspy.Signature):
@@ -61,11 +66,13 @@ class RegulatoryMapper(dspy.Signature):
     to review — it never mutates a live rule automatically.
     """
 
-    guidance_excerpt: str = dspy.InputField(desc="Excerpt from CBUAE guidance / Cabinet Decision / FATF update.")
+    guidance_excerpt: str = dspy.InputField(
+        desc="Excerpt from CBUAE guidance / Cabinet Decision / FATF update.")
     guidance_source: str = dspy.InputField(desc="Document id + version for the audit trail.")
     control_catalogue: str = dspy.InputField(desc="Current scenarios, thresholds, watchlists and their ids.")
 
     affected_controls: str = dspy.OutputField(desc="Ids of scenarios/thresholds/lists this guidance touches.")
-    proposed_change: str = dspy.OutputField(desc="Concrete proposed edit (new scenario / threshold delta / list add).")
+    proposed_change: str = dspy.OutputField(
+        desc="Concrete proposed edit (new scenario / threshold delta / list add).")
     obligation_summary: str = dspy.OutputField(desc="What the guidance requires, in one or two sentences.")
     rationale: str = dspy.OutputField(desc="Why the mapping holds, citing the guidance_source.")

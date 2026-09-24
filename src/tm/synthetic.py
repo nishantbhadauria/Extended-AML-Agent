@@ -23,6 +23,7 @@ SCENARIO_METRICS = [
 
 def generate(n_customers: int = 3000, n_months: int = 6, risky_share: float = 0.04,
              seed: int = 7) -> pd.DataFrame:
+    """Customer-month rows with scenario metrics and a SAR label."""
     rng = np.random.default_rng(seed)
     cust = pd.DataFrame({
         "customer_id": [f"C{i:06d}" for i in range(n_customers)],

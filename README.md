@@ -122,7 +122,12 @@ Try the process layer locally, no credentials needed:
 ```bash
 python -c "from src.tm import synthetic, pipeline; a = pipeline.run(synthetic.generate()); print(a.programme_kpis)"
 pytest -q
+pylint src app tests dataiku config    # 10.00/10 with .pylintrc
 ```
+
+`notebooks/` is excluded from pylint on purpose: Databricks injects `spark`,
+`dbutils` and `display` at runtime and `%run ./00_config` defines shared names,
+none of which a static linter can see. Keep logic in `src/` so it stays linted.
 
 The pattern-scoring job runs *inside* Databricks (or as a Dataiku Spark recipe):
 `python -c "from src.data.lakehouse import spark_apply_patterns; spark_apply_patterns()"`.

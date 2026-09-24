@@ -43,6 +43,7 @@ class SqlClient:
         )
 
     def query(self, sql_text: str, params: dict[str, Any] | None = None) -> pd.DataFrame:
+        """Run parameterised SQL and return a pandas DataFrame."""
         with self._conn.cursor() as cur:
             cur.execute(sql_text, params or {})
             cols = [c[0] for c in cur.description]
@@ -50,6 +51,7 @@ class SqlClient:
 
     # --- Scoped pulls that populate the agent's execution namespace ---------- #
     def transactions_for_party(self, party_id: str, days: int = 180) -> pd.DataFrame:
+        """Transactions for one party over the last `days` days."""
         return self.query(
             f"""
             SELECT * FROM {_fqn(LH.tx_table)}
@@ -60,12 +62,14 @@ class SqlClient:
         )
 
     def party(self, party_id: str) -> pd.DataFrame:
+        """The entity-resolved party record."""
         return self.query(
             f"SELECT * FROM {_fqn(LH.party_table)} WHERE party_id = :pid",
             {"pid": party_id},
         )
 
     def edges_for_party(self, party_id: str) -> pd.DataFrame:
+        """Counterparty graph edges touching the party."""
         return self.query(
             f"""
             SELECT * FROM {_fqn(LH.edges_table)}
@@ -75,6 +79,7 @@ class SqlClient:
         )
 
     def open_alerts(self, limit: int = 500) -> pd.DataFrame:
+        """Currently open alerts, capped at `limit`."""
         return self.query(
             f"SELECT * FROM {_fqn(LH.alerts_table)} WHERE status = 'OPEN' LIMIT {int(limit)}"
         )

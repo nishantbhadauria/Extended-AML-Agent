@@ -15,8 +15,6 @@ let DSPy/LiteLLM talk to Azure directly with env vars.
 from __future__ import annotations
 
 import time
-from typing import Any
-
 import dspy
 
 from config.settings import SETTINGS
@@ -45,6 +43,7 @@ class GatewayTokenProvider:
         raise NotImplementedError("Wire this to FAB's identity provider.")
 
     def token(self) -> str:
+        """Return a cached token, minting a new one shortly before expiry."""
         if self._token is None or time.time() > self._expires_at - self._skew:
             self._token, self._expires_at = self._mint_token()
         return self._token
@@ -74,6 +73,7 @@ def build_gateway_lm(model: str, token_provider: GatewayTokenProvider) -> dspy.L
 # Option B — plain Azure OpenAI on Databricks (simplest path).
 # --------------------------------------------------------------------------- #
 def build_azure_lm(model: str) -> dspy.LM:
+    """A dspy.LM for an Azure OpenAI deployment configured via settings."""
     return dspy.LM(
         model=model,                       # e.g. "azure/gpt-4o"
         api_base=SETTINGS.llm.api_base,    # AZURE_API_BASE

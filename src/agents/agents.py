@@ -7,6 +7,7 @@ table and the eval metric below are the hooks to compile it later.
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
@@ -25,6 +26,7 @@ def _numbered(items: list[str]) -> str:
 
 @dataclass
 class InvestigationOutput:
+    """Generated code, its explanation and the sandboxed execution result."""
     python_code: str
     explanation: str
     exec_result: ExecResult
@@ -52,6 +54,7 @@ class Investigator(dspy.Module):
         risk_thresholds: str = "Defaults from RiskConfig.",
         max_retries: int = 2,
     ) -> InvestigationOutput:
+        """Generate code for the question, run it in the sandbox, retry on errors."""
         sample_rows = frames["tx"].head(3).to_dict("records") if "tx" in frames else []
         last_error = ""
         for attempt in range(max_retries + 1):
@@ -87,7 +90,8 @@ class Summarizer(dspy.Module):
     def forward(self, question: str, code: str, result_preview: str,
                 regulatory_context: str,
                 model_explanation: str = "No ARS explanation supplied.") -> dict[str, str]:
-        ctx = dspy.context(lm=self.summarizer_lm) if self.summarizer_lm else _null_ctx()
+        """Produce the insight, DRAFT SAR narrative, action and caveats."""
+        ctx = dspy.context(lm=self.summarizer_lm) if self.summarizer_lm else nullcontext()
         with ctx:
             pred = self.summarize(
                 question=question,
@@ -114,6 +118,7 @@ class PolicyMapper(dspy.Module):
 
     def forward(self, guidance_excerpt: str, guidance_source: str,
                 control_catalogue: str) -> dict[str, str]:
+        """Map a guidance excerpt to affected controls and a proposed change."""
         pred = self.map(
             guidance_excerpt=guidance_excerpt,
             guidance_source=guidance_source,
@@ -127,11 +132,6 @@ class PolicyMapper(dspy.Module):
         }
 
 
-class _null_ctx:
-    def __enter__(self): return None
-    def __exit__(self, *a): return False
-
-
 # --------------------------------------------------------------------------- #
 # Evaluation metric for later DSPy compilation (currently unused, like the
 # cash agent's zero-shot state). Wire the feedback table into a trainset and
@@ -139,6 +139,7 @@ class _null_ctx:
 # --------------------------------------------------------------------------- #
 def investigation_metric(example: Any, pred: InvestigationOutput, trace: Any = None) -> float:
     """Reward: code executed AND returned rows AND cited a driving flag."""
+    del example, trace  # part of DSPy's metric signature; unused here
     if not pred.exec_result.ok:
         return 0.0
     cited_flag = "flag_" in (pred.python_code or "")

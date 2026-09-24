@@ -1,0 +1,35 @@
+# pylint configuration for Extended AML Agent.
+# Every disable below is a deliberate project convention, with the reason inline.
+
+[MAIN]
+# Databricks notebooks (source format) rely on runtime-injected globals
+# (spark, dbutils, display) and on names defined via `%run ./00_config`,
+# which pylint cannot see. They are thin wrappers over src/, which IS linted.
+ignore-paths=^notebooks/.*$
+# Resolve `from src...` / `from config...` imports from the repo root.
+init-hook="import sys; sys.path.insert(0, '.')"
+# Cluster-provided (pyspark) or optional dev (qdrant_client) dependencies.
+ignored-modules=pyspark,qdrant_client
+
+[FORMAT]
+max-line-length=110
+
+[BASIC]
+# ML conventions: X / Xs for feature matrices, short names in tight loops.
+good-names=i,j,k,v,f,g,m,n,p,q,r,s,t,e,df,cm,sc,lo,ok,X,Xs,_
+
+[DESIGN]
+# Config dataclasses and result bundles carry many fields by design.
+max-attributes=14
+max-args=8
+max-positional-arguments=8
+max-locals=20
+
+[MESSAGES CONTROL]
+disable=
+    # Optional/heavy dependencies (mlflow, databricks, pypdf, qdrant, pyspark)
+    # are imported lazily inside functions so the API and tests run without them.
+    import-outside-toplevel,
+    # DSPy signatures, pydantic request models and Protocols are declarative
+    # classes with no methods by design.
+    too-few-public-methods,

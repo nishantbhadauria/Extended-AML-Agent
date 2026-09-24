@@ -1,6 +1,10 @@
 """End-to-end TM process on synthetic data: invariants a validator would check."""
 from __future__ import annotations
 
+# pytest idioms: fixtures are injected by argument name; test names document intent.
+# pylint: disable=redefined-outer-name,missing-function-docstring
+
+import numpy as np
 import pytest
 
 from src.tm import explain, kpis, pipeline, synthetic, thresholds
@@ -45,10 +49,8 @@ def test_btl_sample_never_exceeds_band(art):
 
 def test_local_explanation_reconstructs_score(art):
     """EBM is additive: intercept + contributions = logit(score)."""
-    import numpy as np
     s = art.scored_alerts
-    X = s[ARS_FEATURES]
-    loc = explain.local_explanation(art.ars_model.ebm, X, 0)
+    loc = explain.local_explanation(art.ars_model.ebm, s[ARS_FEATURES], 0)
     logit = loc.attrs["intercept"] + loc.contribution.sum()
     assert abs(1 / (1 + np.exp(-logit)) - s.ars_score.iloc[0]) < 1e-4
 

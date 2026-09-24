@@ -6,6 +6,9 @@ Databricks job test, not here.
 """
 from __future__ import annotations
 
+# pytest idioms: fixtures are injected by argument name; test names document intent.
+# pylint: disable=missing-function-docstring
+
 import pandas as pd
 import pytest
 

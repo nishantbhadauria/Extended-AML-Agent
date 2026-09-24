@@ -18,6 +18,8 @@ cgroup — the interface below stays the same.
 from __future__ import annotations
 
 import ast
+import contextlib
+import io
 import multiprocessing as mp
 from dataclasses import dataclass
 from typing import Any
@@ -44,6 +46,7 @@ _SAFE_BUILTINS = {
 
 @dataclass
 class ExecResult:
+    """Outcome of executing generated code."""
     ok: bool
     kind: str          # "dataframe" | "figure" | "error"
     payload: Any       # DataFrame | figure JSON | error string
@@ -51,7 +54,7 @@ class ExecResult:
 
 
 class UnsafeCodeError(Exception):
-    pass
+    """Raised when generated code fails the static safety check."""
 
 
 def static_check(code: str) -> None:
@@ -71,9 +74,6 @@ def static_check(code: str) -> None:
 
 
 def _run(code: str, frames: dict[str, pd.DataFrame], q: "mp.Queue") -> None:
-    import io
-    import contextlib
-
     ns: dict[str, Any] = {
         "__builtins__": _SAFE_BUILTINS,
         "pd": pd, "np": np, "px": px,
@@ -83,15 +83,19 @@ def _run(code: str, frames: dict[str, pd.DataFrame], q: "mp.Queue") -> None:
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            exec(code, ns)  # noqa: S102 — constrained namespace + AST pre-check
+            # Deliberate: this module IS the constrained executor (AST check + restricted
+            # builtins + separate process + timeout).
+            exec(code, ns)  # pylint: disable=exec-used
         result = ns.get("result")
         if isinstance(result, pd.DataFrame):
-            q.put(ExecResult(True, "dataframe", result.head(1000).to_dict("records"), buf.getvalue()))
+            rows = result.head(1000).to_dict("records")
+            q.put(ExecResult(True, "dataframe", rows, buf.getvalue()))
         elif hasattr(result, "to_json"):        # Plotly figure
             q.put(ExecResult(True, "figure", result.to_json(), buf.getvalue()))
         else:
-            q.put(ExecResult(False, "error", "Code did not assign a DataFrame or figure to `result`.", buf.getvalue()))
-    except Exception as e:  # noqa: BLE001 — surface any runtime error to the caller
+            msg = "Code did not assign a DataFrame or figure to `result`."
+            q.put(ExecResult(False, "error", msg, buf.getvalue()))
+    except Exception as e:  # pylint: disable=broad-exception-caught  # any error goes back to the agent
         q.put(ExecResult(False, "error", f"{type(e).__name__}: {e}", buf.getvalue()))
 
 

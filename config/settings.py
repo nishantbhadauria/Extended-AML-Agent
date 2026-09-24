@@ -73,6 +73,7 @@ class RiskConfig:
 
 @dataclass
 class Settings:
+    """Top-level settings bundle."""
     llm: LLMConfig = field(default_factory=LLMConfig)
     lakehouse: LakehouseConfig = field(default_factory=LakehouseConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)

@@ -29,9 +29,16 @@ st.set_page_config(page_title="AML/CFT/CPF Agent", layout="wide")
 
 
 def _post(path: str, payload: dict) -> dict:
-    r = requests.post(f"{API}{path}", json=payload, timeout=120)
-    r.raise_for_status()
-    return r.json()
+    resp = requests.post(f"{API}{path}", json=payload, timeout=120)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _gate_label(gates: dict, name: str) -> str:
+    """'pass' / 'fail' for a gate that ran, '–' for one that didn't."""
+    if name not in gates:
+        return "–"
+    return "pass" if gates[name] else "fail"
 
 
 page = st.sidebar.radio(
@@ -83,10 +90,14 @@ elif page == "Investigation":
                     "code": st.session_state["last_code"],
                     "result_preview": st.session_state["last_result_preview"],
                 })
-            st.subheader("Insight");            st.write(s["insight"])
-            st.subheader("DRAFT SAR narrative"); st.warning(s["sar_narrative_draft"])
-            st.subheader("Recommended action");  st.write(s["recommended_action"])
-            st.subheader("Data-quality caveats"); st.write(s["data_quality_caveats"])
+            st.subheader("Insight")
+            st.write(s["insight"])
+            st.subheader("DRAFT SAR narrative")
+            st.warning(s["sar_narrative_draft"])
+            st.subheader("Recommended action")
+            st.write(s["recommended_action"])
+            st.subheader("Data-quality caveats")
+            st.write(s["data_quality_caveats"])
         c1, c2 = st.columns(2)
         if c1.button("👍 Useful"):
             _post("/feedback", {"session_id": "ui", "question": st.session_state["last_question"],
@@ -127,10 +138,14 @@ elif page == "Policy panel":
             m = _post("/policy/map", {"guidance_excerpt": excerpt,
                                       "guidance_source": source,
                                       "control_catalogue": catalogue})
-        st.subheader("Obligation");        st.write(m["obligation_summary"])
-        st.subheader("Affected controls"); st.write(m["affected_controls"])
-        st.subheader("Proposed change");   st.warning(m["proposed_change"])
-        st.subheader("Rationale");         st.caption(m["rationale"])
+        st.subheader("Obligation")
+        st.write(m["obligation_summary"])
+        st.subheader("Affected controls")
+        st.write(m["affected_controls"])
+        st.subheader("Proposed change")
+        st.warning(m["proposed_change"])
+        st.subheader("Rationale")
+        st.caption(m["rationale"])
         st.button("Send to compliance officer for approval (stub)")
 
 # ----------------------------- Compliance Q&A ------------------------------ #
@@ -153,8 +168,9 @@ elif page == "Compliance Q&A":
         g = r["gates"]
         cols = st.columns(3)
         cols[0].metric("Citation gate", "pass" if g.get("citation") else "fail")
-        cols[1].metric("Confidence", f"{r['confidence']:.2f}" if r.get("confidence") is not None else "–")
-        cols[2].metric("Consistency", "pass" if g.get("consistency") else "–" if "consistency" not in g else "fail")
+        conf = r.get("confidence")
+        cols[1].metric("Confidence", f"{conf:.2f}" if conf is not None else "–")
+        cols[2].metric("Consistency", _gate_label(g, "consistency"))
         if r.get("consistency_issues") and r["consistency_issues"].lower() != "none":
             st.warning(r["consistency_issues"])
         with st.expander(f"Sources ({len(r['sources'])})"):

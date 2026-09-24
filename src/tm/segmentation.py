@@ -43,6 +43,7 @@ def customer_features(cust_month: pd.DataFrame) -> pd.DataFrame:
 
 @dataclass
 class SegmentModel:
+    """Per-entity-type scaler and KMeans model with the chosen k."""
     k_by_entity: dict[str, int] = field(default_factory=dict)
     scalers: dict[str, StandardScaler] = field(default_factory=dict)
     models: dict[str, KMeans] = field(default_factory=dict)
@@ -50,6 +51,7 @@ class SegmentModel:
 
     def fit(self, feats: pd.DataFrame, k_range: range = range(2, 7),
             sample: int = 20_000, seed: int = 7) -> "SegmentModel":
+        """Choose k by silhouette within k_range and fit per entity type."""
         for ent, grp in feats.groupby("entity_type"):
             X = grp[FEATURES].to_numpy()
             if len(X) > sample:
@@ -70,6 +72,7 @@ class SegmentModel:
         return self
 
     def assign(self, feats: pd.DataFrame) -> pd.Series:
+        """Label customers as <ENTITY>_S<n>, ordered by volume."""
         out = pd.Series(index=feats.index, dtype="object")
         for ent, grp in feats.groupby("entity_type"):
             Xs = self.scalers[ent].transform(grp[FEATURES].to_numpy())

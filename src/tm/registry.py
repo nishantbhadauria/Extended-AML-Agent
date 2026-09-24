@@ -22,10 +22,12 @@ UC_MODEL_NAME = os.environ.get("AML_ARS_UC_MODEL", "aml.models.alert_risk_score_
 
 
 def save_local(model: ARSModel, path: str | Path) -> None:
+    """Pickle the ARS model to a local file."""
     joblib.dump(model, path)
 
 
 def load_local(path: str | Path) -> ARSModel:
+    """Load a pickled ARS model."""
     return joblib.load(path)
 
 

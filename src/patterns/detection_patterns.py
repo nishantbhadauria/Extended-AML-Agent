@@ -101,6 +101,7 @@ def p_high_velocity(df: DataFrame) -> DataFrame:
 
 
 def p_high_risk_geo(df: DataFrame) -> DataFrame:
+    """Counterparty located in a high-risk jurisdiction."""
     return df.withColumn(
         "flag_high_risk_geo", F.col("counterparty_country").isin(HIGH_RISK_COUNTRIES)
     )
@@ -143,6 +144,7 @@ def p_sanctions_nexus(df: DataFrame) -> DataFrame:
 
 
 def p_pep_nexus(df: DataFrame) -> DataFrame:
+    """Counterparty screened to a politically exposed person (populated upstream)."""
     return df.withColumn(
         "flag_pep_nexus", F.coalesce(F.col("screening_pep_hit"), F.lit(False))
     )
@@ -161,11 +163,12 @@ def p_correspondent_nested(df: DataFrame) -> DataFrame:
     """Nested / downstream correspondent relationship needing EDD."""
     return df.withColumn(
         "flag_correspondent_nested",
-        (F.col("channel") == "CORRESPONDENT") & (F.col("nested_relationship") == True),  # noqa: E712
+        (F.col("channel") == "CORRESPONDENT") & F.col("nested_relationship").cast("boolean"),
     )
 
 
 def p_third_party_funding(df: DataFrame) -> DataFrame:
+    """Account funded by someone other than the account holder."""
     return df.withColumn(
         "flag_third_party_funding",
         F.col("originator_id") != F.col("account_holder_id"),
@@ -185,7 +188,8 @@ def p_cross_border_layering(df: DataFrame) -> DataFrame:
 # Ordered catalogue: name -> (transform, description shown to the agent)
 PATTERN_CATALOGUE: dict[str, tuple[Callable[[DataFrame], DataFrame], str]] = {
     "structuring": (p_structuring, "Multiple sub-threshold deposits in a short window."),
-    "just_below_threshold": (p_just_below_threshold, "Single amount parked just under a reporting-style figure."),
+    "just_below_threshold": (p_just_below_threshold,
+                             "Single amount parked just under a reporting-style figure."),
     "rapid_movement": (p_rapid_movement, "Funds out shortly after coming in (pass-through)."),
     "round_amount": (p_round_amount, "Suspiciously round large amounts."),
     "dormant_then_active": (p_dormant_then_active, "Dormant account suddenly active."),
@@ -193,7 +197,8 @@ PATTERN_CATALOGUE: dict[str, tuple[Callable[[DataFrame], DataFrame], str]] = {
     "high_risk_geo": (p_high_risk_geo, "Counterparty in a high-risk jurisdiction."),
     "new_account_high_value": (p_new_account_high_value, "Large value soon after opening."),
     "fan_in_out": (p_fan_in_out, "Mule-like many-counterparty fan-in/out."),
-    "tbml_invoice_mismatch": (p_tbml_invoice_mismatch, "Trade invoice vs goods-value divergence."),
+    "tbml_invoice_mismatch": (p_tbml_invoice_mismatch,
+                              "Trade invoice vs goods-value divergence."),
     "sanctions_nexus": (p_sanctions_nexus, "Counterparty screened to a sanctions hit."),
     "pep_nexus": (p_pep_nexus, "Counterparty screened to a PEP hit."),
     "pf_dualuse_nexus": (p_pf_dualuse_nexus, "Trade with a proliferation-nexus jurisdiction."),

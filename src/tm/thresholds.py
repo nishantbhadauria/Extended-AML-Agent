@@ -23,6 +23,7 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class Scenario:
+    """A monitoring scenario: the metric it thresholds and its typology."""
     scenario_id: str
     metric: str
     description: str
@@ -30,18 +31,19 @@ class Scenario:
     min_floor: float = 0.0   # regulatory/policy floor the threshold may never drop below
 
 
-SCENARIO_REGISTRY: list[Scenario] = [
+SCENARIO_REGISTRY: tuple[Scenario, ...] = (
     Scenario("SC01_HV_CASH", "cash_deposit_total", "High-value cash deposits", "AML"),
-    Scenario("SC02_STRUCT", "sub_threshold_cash_count", "Structuring below reporting figure", "AML", 2),
+    Scenario("SC02_STRUCT", "sub_threshold_cash_count",
+             "Structuring below reporting figure", "AML", 2),
     Scenario("SC03_RAPID", "rapid_in_out_ratio", "Rapid in/out pass-through", "AML"),
     Scenario("SC04_HRGEO", "high_risk_geo_wire_total", "Wires to high-risk jurisdictions", "CFT"),
     Scenario("SC05_FAN", "distinct_counterparties", "Fan-in / fan-out counterparties", "AML"),
-]
-PERCENTILE_GRID = [80, 85, 90, 92.5, 95, 97, 98, 99, 99.5]
+)
+PERCENTILE_GRID: tuple[float, ...] = (80, 85, 90, 92.5, 95, 97, 98, 99, 99.5)
 
 
 def initial_thresholds(cm: pd.DataFrame, pct: float = 95.0,
-                       registry: list[Scenario] = SCENARIO_REGISTRY) -> pd.DataFrame:
+                       registry: tuple[Scenario, ...] = SCENARIO_REGISTRY) -> pd.DataFrame:
     """Percentile-rule thresholds per (scenario, segment)."""
     rows = []
     for sc in registry:
@@ -54,7 +56,7 @@ def initial_thresholds(cm: pd.DataFrame, pct: float = 95.0,
 
 
 def sweep(cm: pd.DataFrame, sc: Scenario, segment: str,
-          grid: list[float] = PERCENTILE_GRID) -> pd.DataFrame:
+          grid: tuple[float, ...] = PERCENTILE_GRID) -> pd.DataFrame:
     """ATL sweep: alerts, SARs captured and productivity for each candidate."""
     g = cm[cm.segment == segment]
     out = []
@@ -68,7 +70,7 @@ def sweep(cm: pd.DataFrame, sc: Scenario, segment: str,
 
 
 def tune(cm: pd.DataFrame, recall_floor: float = 0.95,
-         registry: list[Scenario] = SCENARIO_REGISTRY,
+         registry: tuple[Scenario, ...] = SCENARIO_REGISTRY,
          min_sars_to_tune: int = 5) -> pd.DataFrame:
     """Pick the highest threshold keeping SAR capture >= recall_floor.
 
