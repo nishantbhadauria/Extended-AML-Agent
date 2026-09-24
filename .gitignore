@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.env
+*.joblib
+mlruns/
+qdrant_storage/
+docs/raw_docs/
+.DS_Store
